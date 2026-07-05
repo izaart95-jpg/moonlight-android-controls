@@ -176,3 +176,4 @@ public class MoonButton extends View {
         return Color.argb(Color.alpha(color), r, g, b);
     }
 }
+

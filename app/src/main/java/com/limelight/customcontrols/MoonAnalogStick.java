@@ -213,3 +213,4 @@ public class MoonAnalogStick extends View {
         paint.setAlpha(Math.min(255, Math.round(Color.alpha(color) * opacity)));
     }
 }
+

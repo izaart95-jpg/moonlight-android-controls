@@ -341,3 +341,4 @@ public class MoonControlOverlay extends FrameLayout {
         setVisibility(INVISIBLE);
     }
 }
+
