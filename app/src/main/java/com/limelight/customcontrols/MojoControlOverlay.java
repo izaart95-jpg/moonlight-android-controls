@@ -10,6 +10,7 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -52,7 +53,8 @@ public class MojoControlOverlay extends FrameLayout
 
     // ─── Child views ──────────────────────────────────────────────────────────
     private final List<MojoButtonView> mButtonViews = new ArrayList<>();
-    private Button mFloatingBtn;
+    private Button mFloatingBtn;   // ⊕ toggle button
+    private Button mLoadBtn;        // 📂 load config button
 
     // ─── Input pipeline ───────────────────────────────────────────────────────
     private final MojoInputBridge mBridge = new MojoInputBridge();
@@ -92,6 +94,7 @@ public class MojoControlOverlay extends FrameLayout
      * Call this once from Game.connectionStarted() BEFORE calling loadSavedLayout().
      */
     public void initFloatingButton(FrameLayout parent) {
+        // ── ⊕ toggle button (top-center) ──────────────────────────────────
         mFloatingBtn = new Button(getContext());
         mFloatingBtn.setText("⊕");
         mFloatingBtn.setTextSize(20);
@@ -100,14 +103,33 @@ public class MojoControlOverlay extends FrameLayout
         mFloatingBtn.setTextColor(0xFFFFFFFF);
         mFloatingBtn.setPadding(16, 8, 16, 8);
 
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+        FrameLayout.LayoutParams lp1 = new FrameLayout.LayoutParams(
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
-        lp.gravity   = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
-        lp.topMargin = 6;
-        parent.addView(mFloatingBtn, lp);
+        lp1.gravity   = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+        lp1.topMargin = 6;
+        parent.addView(mFloatingBtn, lp1);
 
         mFloatingBtn.setOnClickListener(v -> handleFloatingButtonTap());
         mFloatingBtn.setOnLongClickListener(v -> { showOverlayMenu(v); return true; });
+
+        // ── 📂 load config button (top-right) ─────────────────────────────
+        mLoadBtn = new Button(getContext());
+        mLoadBtn.setText("📂");
+        mLoadBtn.setTextSize(18);
+        mLoadBtn.setAlpha(0.6f);
+        mLoadBtn.setBackgroundColor(0xAA000000);
+        mLoadBtn.setTextColor(0xFFFFFFFF);
+        mLoadBtn.setPadding(14, 6, 14, 6);
+
+        FrameLayout.LayoutParams lp2 = new FrameLayout.LayoutParams(
+                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        lp2.gravity      = Gravity.TOP | Gravity.END;
+        lp2.topMargin    = 6;
+        lp2.rightMargin  = 8;
+        lp2.setMarginEnd(8);
+        parent.addView(mLoadBtn, lp2);
+
+        mLoadBtn.setOnClickListener(v -> showImportDialog());
     }
 
     /**
@@ -167,27 +189,106 @@ public class MojoControlOverlay extends FrameLayout
         Log.d(TAG, "Layout applied: " + buttons.size() + " buttons");
     }
 
-    /** Show the file-picker dialog so the user can import a JSON layout. */
+    /** Full-screen paste dialog — no storage permission needed. */
     public void showImportDialog() {
-        // On Android without a file picker dependency we use a text-paste dialog
-        android.widget.EditText input = new android.widget.EditText(getContext());
-        input.setHint("Paste your MojoLauncher JSON layout here");
-        input.setMinLines(4);
-        input.setMaxLines(12);
+        // Container layout
+        android.widget.LinearLayout container = new android.widget.LinearLayout(getContext());
+        container.setOrientation(android.widget.LinearLayout.VERTICAL);
+        container.setPadding(24, 16, 24, 8);
 
-        new AlertDialog.Builder(getContext())
-                .setTitle("Import Layout JSON")
-                .setMessage("Paste the contents of your .json control layout file:")
-                .setView(input)
-                .setPositiveButton("Apply", (d, w) -> {
-                    String text = input.getText().toString().trim();
-                    if (text.isEmpty()) return;
+        android.widget.TextView hint = new android.widget.TextView(getContext());
+        hint.setText("Paste the full contents of your MojoLauncher .json layout file below:");
+        hint.setTextColor(0xFF888888);
+        hint.setTextSize(13);
+        hint.setPadding(0, 0, 0, 12);
+        container.addView(hint);
+
+        android.widget.EditText input = new android.widget.EditText(getContext());
+        input.setHint("{"mControlDataList": [...]}");
+        input.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        input.setBackgroundColor(0xFF1A1A1A);
+        input.setTextColor(0xFFEEEEEE);
+        input.setTextSize(12);
+        input.setPadding(12, 12, 12, 12);
+        // Scrollable text area — fills most of the screen height
+        int screenH = getResources().getDisplayMetrics().heightPixels;
+        android.widget.LinearLayout.LayoutParams etp =
+                new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        (int)(screenH * 0.55f));
+        input.setLayoutParams(etp);
+        input.setVerticalScrollBarEnabled(true);
+        input.setScrollBarStyle(android.view.View.SCROLLBARS_INSIDE_INSET);
+        // Allow scrolling inside the EditText without the dialog intercepting
+        input.setOnTouchListener((v, ev) -> {
+            v.getParent().requestDisallowInterceptTouchEvent(true);
+            if ((ev.getAction() & android.view.MotionEvent.ACTION_MASK)
+                    == android.view.MotionEvent.ACTION_UP) {
+                v.getParent().requestDisallowInterceptTouchEvent(false);
+            }
+            return false;
+        });
+        container.addView(input);
+
+        // Status label shown after validation
+        android.widget.TextView status = new android.widget.TextView(getContext());
+        status.setTextSize(12);
+        status.setPadding(0, 8, 0, 0);
+        status.setVisibility(android.view.View.GONE);
+        container.addView(status);
+
+        AlertDialog dialog = new AlertDialog.Builder(getContext())
+                .setTitle("Load Control Layout")
+                .setView(container)
+                .setPositiveButton("Apply", null)   // set manually to prevent auto-dismiss on error
+                .setNegativeButton("Cancel", null)
+                .create();
+
+        dialog.setOnShowListener(d -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String text = input.getText().toString().trim();
+                if (text.isEmpty()) {
+                    status.setText("⚠ Nothing pasted yet.");
+                    status.setTextColor(0xFFFF8800);
+                    status.setVisibility(android.view.View.VISIBLE);
+                    return;
+                }
+                // Quick validation
+                if (!text.startsWith("{")) {
+                    status.setText("⚠ Doesn't look like JSON. Make sure you paste the whole file.");
+                    status.setTextColor(0xFFFF4444);
+                    status.setVisibility(android.view.View.VISIBLE);
+                    return;
+                }
+                try {
+                    // Dry-run parse to check validity before applying
+                    org.json.JSONObject root = new org.json.JSONObject(text);
+                    int count = root.optJSONArray("mControlDataList") != null
+                            ? root.getJSONArray("mControlDataList").length() : 0;
                     applyJson(text);
                     showControls();
-                    Toast.makeText(getContext(), "Layout imported!", Toast.LENGTH_SHORT).show();
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+                    dialog.dismiss();
+                    Toast.makeText(getContext(),
+                            "✓ Layout loaded — " + count + " buttons", Toast.LENGTH_SHORT).show();
+                } catch (org.json.JSONException e) {
+                    status.setText("⚠ JSON error: " + e.getMessage());
+                    status.setTextColor(0xFFFF4444);
+                    status.setVisibility(android.view.View.VISIBLE);
+                }
+            });
+        });
+
+        // Make the dialog wide and tall
+        dialog.show();
+        android.view.Window win = dialog.getWindow();
+        if (win != null) {
+            win.setLayout(
+                    (int)(getResources().getDisplayMetrics().widthPixels * 0.95f),
+                    android.view.WindowManager.LayoutParams.WRAP_CONTENT);
+        }
     }
 
     // ─── Visibility ──────────────────────────────────────────────────────────
@@ -223,6 +324,7 @@ public class MojoControlOverlay extends FrameLayout
         mControlsVisible = true;
         setVisibility(VISIBLE);
         updateFloatingLabel();
+        updateLoadBtnVisibility();
     }
 
     public void hideControls() {
@@ -230,6 +332,7 @@ public class MojoControlOverlay extends FrameLayout
         releaseAll();
         setVisibility(INVISIBLE);
         updateFloatingLabel();
+        updateLoadBtnVisibility();
     }
 
     public boolean areControlsVisible() { return mControlsVisible; }
@@ -273,6 +376,14 @@ public class MojoControlOverlay extends FrameLayout
             if (mControlsVisible) hideControls();
             else                  showControls();
         }
+    }
+
+    private void updateLoadBtnVisibility() {
+        if (mLoadBtn == null) return;
+        // Always visible so user can always load a new layout
+        mLoadBtn.setVisibility(android.view.View.VISIBLE);
+        // Dim it in edit mode so it doesn't get in the way
+        mLoadBtn.setAlpha(mEditMode ? 0.3f : 0.6f);
     }
 
     private void updateFloatingLabel() {
