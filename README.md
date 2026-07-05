@@ -1,4 +1,4 @@
-# Moonlight Android
+# Moonlight Android Controls
 
 [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/232a8tadrrn8jv0k/branch/master?svg=true)](https://ci.appveyor.com/project/cgutman/moonlight-android/branch/master)
 [![Translation Status](https://hosted.weblate.org/widgets/moonlight/-/moonlight-android/svg-badge.svg)](https://hosted.weblate.org/projects/moonlight/moonlight-android/)
@@ -7,6 +7,8 @@
 
 Moonlight for Android will allow you to stream your full collection of games from your Windows PC to your Android device,
 whether in your own home or over the internet.
+
+This fork adds custom controls which can be configured using json from pojavlauncher / mojolauncher
 
 Moonlight also has a [PC client](https://github.com/moonlight-stream/moonlight-qt) and [iOS/tvOS client](https://github.com/moonlight-stream/moonlight-ios).
 
