@@ -204,7 +204,7 @@ public class MojoControlOverlay extends FrameLayout
         container.addView(hint);
 
         android.widget.EditText input = new android.widget.EditText(getContext());
-        input.setHint("{"mControlDataList": [...]}");
+        input.setHint("{mControlDataList: [...]}");
         input.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
         input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
                 | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
