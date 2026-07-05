@@ -2466,7 +2466,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 // Activate the custom controls overlay
                 if (mojoOverlay != null) {
                     mojoOverlay.attach(conn, controllerHandler);
-                    if (!mojoOverlay.loadLayout()) {
+                    if (!mojoOverlay.loadSavedLayout()) {
                         // No saved layout – apply the default gamepad layout
                     }
                     mojoOverlay.showControls();
